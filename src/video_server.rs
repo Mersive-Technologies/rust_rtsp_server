@@ -55,7 +55,7 @@ fn create_pipeline(
     // by creating a video info with the given format and creating caps from it for the appsrc element.
     let video_info =
         gst_video::VideoInfo::builder(gst_video::VideoFormat::Bgrx, WIDTH as u32, HEIGHT as u32)
-            .fps(gstreamer::Fraction::new(2, 1))
+            .fps(15)
             .build()
             .expect("Failed to create video info");
 
@@ -98,7 +98,7 @@ fn create_pipeline(
                     // For each frame we produce, we set the timestamp when it should be displayed
                     // (pts = presentation time stamp)
                     // The autovideosink will use this information to display the frame at the right time.
-                    buffer.set_pts(i * 500 * gstreamer::MSECOND);
+                    buffer.set_pts(i * (15 / 1000) * gstreamer::MSECOND);
 
                     // At this point, buffer is only a reference to an existing memory region somewhere.
                     // When we want to access its content, we have to map it while requesting the required
