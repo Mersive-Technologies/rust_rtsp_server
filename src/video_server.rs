@@ -62,29 +62,10 @@ fn create_pipeline(
     appsrc.set_caps(Some(&video_info.to_caps().unwrap()));
     appsrc.set_property_format(gstreamer::Format::Time);
 
-    // Our frame counter, that is stored in the mutable environment
-    // of the closure of the need-data callback
-    //
-    // Alternatively we could also simply start a new thread that
-    // pushes a buffer to the appsrc whenever it wants to, but this
-    // is not really needed here. It is *not required* to use the
-    // need-data callback.
     let mut i = 0;
     appsrc.set_callbacks(
-        // Since our appsrc element operates in pull mode (it asks us to provide data),
-        // we add a handler for the need-data callback and provide new data from there.
-        // In our case, we told gstreamer that we do 2 frames per second. While the
-        // buffers of all elements of the pipeline are still empty, this will be called
-        // a couple of times until all of them are filled. After this initial period,
-        // this handler will be called (on average) twice per second.
         gst_app::AppSrcCallbacks::builder()
             .need_data(move |appsrc, _| {
-                // We only produce 100 frames
-                if i == 100 {
-                    let _ = appsrc.end_of_stream();
-                    return;
-                }
-
                 println!("Producing frame {}", i);
 
                 let r = if i % 2 == 0 { 0 } else { 255 };
