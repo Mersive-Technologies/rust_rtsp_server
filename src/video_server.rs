@@ -9,6 +9,9 @@ use futures::prelude::*;
 
 use anyhow::Error;
 use derive_more::{Display, Error};
+use std::thread;
+use std::thread::sleep;
+use std::time::Duration;
 
 #[derive(Debug, Display, Error)]
 #[display(fmt = "Missing element {}", _0)]
@@ -63,46 +66,52 @@ fn create_pipeline(
     appsrc.set_property_format(gstreamer::Format::Time);
 
     let mut i = 0;
-    appsrc.set_callbacks(
-        gst_app::AppSrcCallbacks::builder()
-            .need_data(move |appsrc, _| {
-                println!("Producing frame {}", i);
+    thread::spawn(move || {
+        loop {
+            println!("Producing frame {}", i);
 
-                let r = if i % 2 == 0 { 0 } else { 255 };
-                let g = if i % 3 == 0 { 0 } else { 255 };
-                let b = if i % 5 == 0 { 0 } else { 255 };
+            let r = if i % 2 == 0 { 0 } else { 255 };
+            let g = if i % 3 == 0 { 0 } else { 255 };
+            let b = if i % 5 == 0 { 0 } else { 255 };
 
-                // Create the buffer that can hold exactly one BGRx frame.
-                let mut buffer = gstreamer::Buffer::with_size(video_info.size()).unwrap();
-                {
-                    let buffer = buffer.get_mut().unwrap();
-                    // For each frame we produce, we set the timestamp when it should be displayed
-                    // (pts = presentation time stamp)
-                    // The autovideosink will use this information to display the frame at the right time.
-                    buffer.set_pts(i * (15 / 1000) * gstreamer::MSECOND);
+            // Create the buffer that can hold exactly one BGRx frame.
+            let mut buffer = gstreamer::Buffer::with_size(video_info.size()).unwrap();
+            {
+                let buffer = buffer.get_mut().unwrap();
+                // For each frame we produce, we set the timestamp when it should be displayed
+                // (pts = presentation time stamp)
+                // The autovideosink will use this information to display the frame at the right time.
+                buffer.set_pts(i * (15 / 1000) * gstreamer::MSECOND);
 
-                    // At this point, buffer is only a reference to an existing memory region somewhere.
-                    // When we want to access its content, we have to map it while requesting the required
-                    // mode of access (read, read/write).
-                    // See: https://gstreamer.freedesktop.org/documentation/plugin-development/advanced/allocation.html
-                    let mut data = buffer.map_writable().unwrap();
+                // At this point, buffer is only a reference to an existing memory region somewhere.
+                // When we want to access its content, we have to map it while requesting the required
+                // mode of access (read, read/write).
+                // See: https://gstreamer.freedesktop.org/documentation/plugin-development/advanced/allocation.html
+                let mut data = buffer.map_writable().unwrap();
 
-                    for p in data.as_mut_slice().chunks_mut(4) {
-                        assert_eq!(p.len(), 4);
-                        p[0] = b;
-                        p[1] = g;
-                        p[2] = r;
-                        p[3] = 0;
-                    }
+                for p in data.as_mut_slice().chunks_mut(4) {
+                    assert_eq!(p.len(), 4);
+                    p[0] = b;
+                    p[1] = g;
+                    p[2] = r;
+                    p[3] = 0;
                 }
+            }
 
-                i += 1;
+            i += 1;
 
-                // appsrc already handles the error here
-                let _ = appsrc.push_buffer(buffer);
-            })
-            .build(),
-    );
+            // appsrc already handles the error here
+            let _ = appsrc.push_buffer(buffer);
+            sleep(Duration::from_millis(15 / 1000));
+        }
+    });
+
+//    appsrc.set_callbacks(
+//        gst_app::AppSrcCallbacks::builder()
+//            .need_data(move |appsrc, _| {
+//            })
+//            .build(),
+//    );
 
     Ok(pipeline)
 }
